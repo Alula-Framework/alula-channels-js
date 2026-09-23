@@ -1,6 +1,6 @@
 // A scriptable WebSocket double implementing the subset of the browser API
 // the client uses (constructor, send, close, onopen/onmessage/onclose), plus
-// a tiny in-memory Flight Channels server speaking the wire protocol —
+// a tiny in-memory Alula Channels server speaking the wire protocol —
 // enough to test the client's protocol behavior without a network.
 
 export class MockWebSocket {
@@ -67,7 +67,7 @@ MockWebSocket.onSend = null;
 /**
  * Wires MockWebSocket.onSend to a scripted server: joins succeed with
  * `initialState`, "echo" replies with its payload, "silent" never replies,
- * "fail" answers flight:error, heartbeats ack — mirroring the Swift test
+ * "fail" answers alula:error, heartbeats ack — mirroring the Swift test
  * fixtures so both clients are proven against the same server behavior.
  */
 export function scriptServer({ initialState = { count: 0 }, rejectTopics = [] } = {}) {
@@ -77,21 +77,21 @@ export function scriptServer({ initialState = { count: 0 }, rejectTopics = [] } 
       queueMicrotask(() => ws.receive({ ref, topic, event, payload }));
 
     switch (event) {
-      case "flight:join":
-        if (rejectTopics.includes(topic)) reply("flight:error", { reason: "forbidden" });
-        else reply("flight:reply", initialState);
+      case "alula:join":
+        if (rejectTopics.includes(topic)) reply("alula:error", { reason: "forbidden" });
+        else reply("alula:reply", initialState);
         return;
-      case "flight:leave":
-      case "flight:heartbeat":
-        if (ref != null) reply("flight:reply", {});
+      case "alula:leave":
+      case "alula:heartbeat":
+        if (ref != null) reply("alula:reply", {});
         return;
-      case "flight:close":
+      case "alula:close":
         return;
       case "echo":
-        if (ref != null) reply("flight:reply", payload);
+        if (ref != null) reply("alula:reply", payload);
         return;
       case "fail":
-        reply("flight:error", { reason: "boom" });
+        reply("alula:error", { reason: "boom" });
         return;
       case "silent":
         return;

@@ -1,8 +1,8 @@
-// Flight Channels — JS/TS reference client.
+// Alula Channels — JS/TS reference client.
 //
 // Deliberately small and dependency-free: WebSocket management, the envelope
 // protocol, ref/reply correlation (push() returns a promise resolving
-// on the matching flight:reply), the heartbeat, and automatic
+// on the matching alula:reply), the heartbeat, and automatic
 // reconnect-with-backoff-and-rejoin. Protocol plumbing, not a framework.
 //
 // The wire contract is the same one the server and the Swift client are
@@ -11,18 +11,18 @@
 
 /** Reserved lifecycle events. */
 export const RESERVED = Object.freeze({
-  join: "flight:join",
-  leave: "flight:leave",
-  reply: "flight:reply",
-  error: "flight:error",
-  heartbeat: "flight:heartbeat",
-  close: "flight:close",
+  join: "alula:join",
+  leave: "alula:leave",
+  reply: "alula:reply",
+  error: "alula:error",
+  heartbeat: "alula:heartbeat",
+  close: "alula:close",
 });
 
 /** The topic socket-level control events travel on. Can never be joined. */
-export const CONTROL_TOPIC = "flight";
+export const CONTROL_TOPIC = "alula";
 
-/** The server answered with flight:error (join rejected, handler error…). */
+/** The server answered with alula:error (join rejected, handler error…). */
 export class ChannelError extends Error {
   /** @param {string} reason */
   constructor(reason) {
@@ -71,10 +71,10 @@ export function exponentialBackoff({ initialMs = 100, maxMs = 10_000, maxAttempt
 }
 
 /**
- * One client WebSocket connection to a Flight server — the "Socket" noun
+ * One client WebSocket connection to an Alula server — the "Socket" noun
  *. Holds many channels.
  */
-export class FlightSocket {
+export class AlulaSocket {
   /**
    * @param {string} url
    * @param {{
@@ -101,7 +101,7 @@ export class FlightSocket {
     this._refCounter = 0;
     /** @type {Map<string, {resolve: Function, reject: Function, timer: any}>} */
     this._pending = new Map();
-    /** @type {Map<string, FlightChannel>} */
+    /** @type {Map<string, AlulaChannel>} */
     this._channels = new Map();
     /** @type {Set<(state: string) => void>} */
     this._stateListeners = new Set();
@@ -124,7 +124,7 @@ export class FlightSocket {
   }
 
   /**
-   * Graceful teardown: best-effort flight:close, then the transport
+   * Graceful teardown: best-effort alula:close, then the transport
    * close. Terminal — no reconnection until connect() is called again.
    * Channel membership intent survives: a later connect() rejoins.
    */
@@ -148,12 +148,12 @@ export class FlightSocket {
    * A handle for one topic. Cheap; does not join. One instance per
    * topic per socket — repeated calls return the same handle.
    * @param {string} topic
-   * @returns {FlightChannel}
+   * @returns {AlulaChannel}
    */
   channel(topic) {
     let channel = this._channels.get(topic);
     if (!channel) {
-      channel = new FlightChannel(topic, this);
+      channel = new AlulaChannel(topic, this);
       this._channels.set(topic, channel);
     }
     return channel;
@@ -247,7 +247,7 @@ export class FlightSocket {
         const state = await this._request(channel.topic, RESERVED.join, {}, this._pushTimeoutMs);
         channel._joined = true;
         // Parity with the Swift client: the fresh state arrives on the
-        // message listeners as a flight:join message.
+        // message listeners as an alula:join message.
         channel._deliver(RESERVED.join, state);
       } catch (error) {
         if (error instanceof ChannelError) {
@@ -284,7 +284,7 @@ export class FlightSocket {
     }
   }
 
-  /** @returns {Promise<any>} the flight:reply payload */
+  /** @returns {Promise<any>} the alula:reply payload */
   _request(topic, event, payload, timeoutMs) {
     if (this.state !== "connected" || !this._ws) {
       return Promise.reject(new NotConnectedError());
@@ -315,7 +315,7 @@ export class FlightSocket {
     try {
       envelope = JSON.parse(text);
     } catch {
-      // Flight owns both ends: an undecodable server frame is a
+      // Alula owns both ends: an undecodable server frame is a
       // version-skew bug, not a compatibility case. Drop it.
       return;
     }
@@ -373,10 +373,10 @@ export class FlightSocket {
  * A client's membership in one topic on one socket — the "Channel" noun
  *, client side.
  */
-export class FlightChannel {
+export class AlulaChannel {
   /**
    * @param {string} topic
-   * @param {FlightSocket} socket
+   * @param {AlulaSocket} socket
    */
   constructor(topic, socket) {
     this.topic = topic;
@@ -396,7 +396,7 @@ export class FlightChannel {
    * Joins the topic (the join is the gate). Resolves with the channel's
    * initial state; rejects with ChannelError when refused. Membership
    * survives reconnection: after a drop the client rejoins automatically
-   * and the fresh state is delivered as a "flight:join" message.
+   * and the fresh state is delivered as a "alula:join" message.
    * @param {number} [timeoutMs]
    * @returns {Promise<any>}
    */
@@ -428,9 +428,9 @@ export class FlightChannel {
   }
 
   /**
-   * Sends an application event and awaits its flight:reply. Rejects
+   * Sends an application event and awaits its alula:reply. Rejects
    * with TimeoutError if the handler chose not to reply, ChannelError if it
-   * answered flight:error, DisconnectedError if the connection dropped.
+   * answered alula:error, DisconnectedError if the connection dropped.
    * @param {string} event
    * @param {any} [payload]
    * @param {number} [timeoutMs]
@@ -456,8 +456,8 @@ export class FlightChannel {
 
   /**
    * Listen for pushes on this channel. `event` may be "*" for everything
-   * (including the synthetic "flight:join" rejoin notification and
-   * uncorrelated "flight:error"s). Returns an unsubscribe function.
+   * (including the synthetic "alula:join" rejoin notification and
+   * uncorrelated "alula:error"s). Returns an unsubscribe function.
    * @param {string} event
    * @param {(payload: any, event: string) => void} listener
    */

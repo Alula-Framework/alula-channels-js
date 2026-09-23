@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FlightPresence, PRESENCE_EVENTS } from "../src/flight-presence.js";
-import { FlightSocket } from "../src/flight-channels.js";
+import { AlulaPresence, PRESENCE_EVENTS } from "../src/alula-presence.js";
+import { AlulaSocket } from "../src/alula-channels.js";
 import { MockWebSocket, scriptServer } from "./mock-websocket.js";
 
 // These cases mirror the Swift `PresenceSyncTests` — one rulebook, two
 // implementations, the same assertions ( ).
 
-/** A minimal channel double: just the `on` registry FlightPresence uses. */
+/** A minimal channel double: just the `on` registry AlulaPresence uses. */
 function stubChannel() {
   const listeners = new Map();
   return {
@@ -28,7 +28,7 @@ const entry = (metas) => ({ metas });
 
 test("state replaces the view and reports the difference", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
   const changes = [];
   presence.onChange((change) => changes.push(change));
 
@@ -46,7 +46,7 @@ test("state replaces the view and reports the difference", () => {
 
 test("join adds a meta; leave removes by ref; key gone on last meta", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
 
   channel.deliver(PRESENCE_EVENTS.diff, { joins: { "user:7": entry([meta("a1"), meta("a2")]) }, leaves: {} });
   assert.equal(presence.list()[0].metas.length, 2);
@@ -60,7 +60,7 @@ test("join adds a meta; leave removes by ref; key gone on last meta", () => {
 
 test("an update diff (leave+join, same ref) normalizes to an in-place change — no flap", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
   channel.deliver(PRESENCE_EVENTS.diff, { joins: { "user:7": entry([meta("a1", { status: "online" })]) }, leaves: {} });
 
   const changes = [];
@@ -77,7 +77,7 @@ test("an update diff (leave+join, same ref) normalizes to an in-place change —
 
 test("a re-delivered join for a known ref upserts and reports nothing", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
   const changes = [];
   presence.onChange((change) => changes.push(change));
 
@@ -90,7 +90,7 @@ test("a re-delivered join for a known ref upserts and reports nothing", () => {
 
 test("a leave for an unknown ref is a silent no-op", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
   const changes = [];
   presence.onChange((change) => changes.push(change));
 
@@ -101,7 +101,7 @@ test("a leave for an unknown ref is a silent no-op", () => {
 
 test("malformed payloads are tolerated (dropped members, not exceptions)", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
 
   channel.deliver(PRESENCE_EVENTS.state, null);
   channel.deliver(PRESENCE_EVENTS.state, { "user:7": { metas: "nope" } });
@@ -111,7 +111,7 @@ test("malformed payloads are tolerated (dropped members, not exceptions)", () =>
 
 test("destroy stops updates", () => {
   const channel = stubChannel();
-  const presence = new FlightPresence(channel);
+  const presence = new AlulaPresence(channel);
   presence.destroy();
   channel.deliver(PRESENCE_EVENTS.diff, { joins: { "user:7": entry([meta("a1")]) }, leaves: {} });
   assert.deepEqual(presence.list(), []);
@@ -119,10 +119,10 @@ test("destroy stops updates", () => {
 
 // ---- against the real client -------------------------------------------
 
-test("works over a real FlightChannel: server frames drive the list", async () => {
+test("works over a real AlulaChannel: server frames drive the list", async () => {
   MockWebSocket.reset();
   scriptServer();
-  const socket = new FlightSocket("ws://example.test/socket", {
+  const socket = new AlulaSocket("ws://example.test/socket", {
     webSocket: MockWebSocket,
     heartbeatIntervalMs: 60_000,
     pushTimeoutMs: 200,
@@ -130,7 +130,7 @@ test("works over a real FlightChannel: server frames drive the list", async () =
   });
   await socket.connect();
   const room = socket.channel("room:42");
-  const presence = new FlightPresence(room);
+  const presence = new AlulaPresence(room);
   await room.join();
 
   const ws = MockWebSocket.current;

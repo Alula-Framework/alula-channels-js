@@ -1,11 +1,11 @@
-// Type declarations for @swift-flight/channels/presence — the presence helper
+// Type declarations for @alula-framework/channels/presence — the presence helper
 // ( ).
 
 import type { Json } from "./index.js";
 
 export const PRESENCE_EVENTS: Readonly<{
-  state: "flight:presence_state";
-  diff: "flight:presence_diff";
+  state: "alula:presence_state";
+  diff: "alula:presence_diff";
 }>;
 
 /** One meta as it travels on the wire: the ref plus the flattened payload. */
@@ -28,12 +28,12 @@ export interface PresenceChange {
   leaves: Record<string, PresenceMeta[]>;
 }
 
-/** The `on` shape FlightPresence needs — satisfied by FlightChannel. */
+/** The `on` shape AlulaPresence needs — satisfied by AlulaChannel. */
 export interface PresenceChannelLike {
   on(event: string, listener: (payload: Json, event: string) => void): () => void;
 }
 
-export class FlightPresence {
+export class AlulaPresence {
   constructor(channel: PresenceChannelLike);
   list(): PresenceEntry[];
   onChange(listener: (change: PresenceChange) => void): () => void;

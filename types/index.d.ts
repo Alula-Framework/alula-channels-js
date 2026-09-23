@@ -1,4 +1,4 @@
-// Type declarations for @swift-flight/channels — the JS reference client
+// Type declarations for @alula-framework/channels — the JS reference client
 // ( ).
 
 /** Any JSON value — the envelope's opaque payload. */
@@ -7,15 +7,15 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type SocketState = "closed" | "connecting" | "connected" | "disconnected";
 
 export const RESERVED: Readonly<{
-  join: "flight:join";
-  leave: "flight:leave";
-  reply: "flight:reply";
-  error: "flight:error";
-  heartbeat: "flight:heartbeat";
-  close: "flight:close";
+  join: "alula:join";
+  leave: "alula:leave";
+  reply: "alula:reply";
+  error: "alula:error";
+  heartbeat: "alula:heartbeat";
+  close: "alula:close";
 }>;
 
-export const CONTROL_TOPIC: "flight";
+export const CONTROL_TOPIC: "alula";
 
 export class ChannelError extends Error {
   readonly name: "ChannelError";
@@ -41,7 +41,7 @@ export function exponentialBackoff(options?: {
   maxAttempts?: number | null;
 }): (attempt: number) => number | null;
 
-export interface FlightSocketOptions {
+export interface AlulaSocketOptions {
   /** WebSocket constructor injection (tests, Node without a global). */
   webSocket?: typeof WebSocket;
   /** Default 25 000 — well inside the server's 60 s timeout. */
@@ -52,17 +52,17 @@ export interface FlightSocketOptions {
   reconnectDelayMs?: (attempt: number) => number | null;
 }
 
-export class FlightSocket {
-  constructor(url: string, options?: FlightSocketOptions);
+export class AlulaSocket {
+  constructor(url: string, options?: AlulaSocketOptions);
   readonly url: string;
   readonly state: SocketState;
   connect(): Promise<void>;
   disconnect(): void;
-  channel(topic: string): FlightChannel;
+  channel(topic: string): AlulaChannel;
   onStateChange(listener: (state: SocketState) => void): () => void;
 }
 
-export class FlightChannel {
+export class AlulaChannel {
   readonly topic: string;
   readonly joined: boolean;
   join(timeoutMs?: number): Promise<Json>;

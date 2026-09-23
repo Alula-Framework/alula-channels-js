@@ -1,17 +1,17 @@
 {
-  "name": "@swift-flight/channels",
+  "name": "@alula-framework/channels",
   "version": "0.1.0",
-  "description": "Flight Channels reference client (browser/Node): the envelope protocol, ref/reply correlation, heartbeat, reconnect-with-backoff-and-rejoin.",
+  "description": "Alula Channels reference client (browser/Node): the envelope protocol, ref/reply correlation, heartbeat, reconnect-with-backoff-and-rejoin.",
   "type": "module",
-  "main": "./src/flight-channels.js",
+  "main": "./src/alula-channels.js",
   "exports": {
     ".": {
       "types": "./types/index.d.ts",
-      "default": "./src/flight-channels.js"
+      "default": "./src/alula-channels.js"
     },
     "./presence": {
       "types": "./types/presence.d.ts",
-      "default": "./src/flight-presence.js"
+      "default": "./src/alula-presence.js"
     }
   },
   "types": "./types/index.d.ts",
@@ -30,17 +30,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Swift-Flight/flight-channels-js.git"
+    "url": "git+https://github.com/Alula-Framework/alula-channels-js.git"
   },
-  "homepage": "https://github.com/Swift-Flight/flight-channels-js#readme",
+  "homepage": "https://github.com/Alula-Framework/alula-channels-js#readme",
   "bugs": {
-    "url": "https://github.com/Swift-Flight/flight-channels-js/issues"
+    "url": "https://github.com/Alula-Framework/alula-channels-js/issues"
   },
   "keywords": [
     "websocket",
     "channels",
     "presence",
     "realtime",
-    "swift-flight"
+    "alula"
   ]
 }

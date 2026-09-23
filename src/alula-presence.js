@@ -1,7 +1,7 @@
-// Flight Presence — JS/TS client helper.
+// Alula Presence — JS/TS client helper.
 //
-// Applies flight:presence_state / flight:presence_diff messages from a
-// FlightChannel to a maintained key → metas map, so application code sees
+// Applies alula:presence_state / alula:presence_diff messages from a
+// AlulaChannel to a maintained key → metas map, so application code sees
 // a list, not diff plumbing. The rules mirror the Swift `PresenceSync`
 // state machine exactly (its test suite asserts the same cases):
 //
@@ -16,8 +16,8 @@
 
 /** The two reserved presence events. */
 export const PRESENCE_EVENTS = Object.freeze({
-  state: "flight:presence_state",
-  diff: "flight:presence_diff",
+  state: "alula:presence_state",
+  diff: "alula:presence_diff",
 });
 
 function shallowEqual(a, b) {
@@ -44,14 +44,14 @@ function parseEntries(entries) {
  * Maintains one topic's presence from state + diff messages.
  *
  *     const room = socket.channel("room:42");
- *     const presence = new FlightPresence(room);
+ *     const presence = new AlulaPresence(room);
  *     presence.onChange(({ list, joins, leaves }) => render(list));
  *     await room.join();   // server sends state, then diffs
  */
-export class FlightPresence {
+export class AlulaPresence {
   /**
    * @param {{on: (event: string, listener: (payload: any) => void) => () => void}} channel
-   *   a FlightChannel (or anything with its `on` shape).
+   *   a AlulaChannel (or anything with its `on` shape).
    */
   constructor(channel) {
     /** @type {Map<string, object[]>} key → metas, each meta {ref, ...payload} */

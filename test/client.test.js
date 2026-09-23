@@ -1,17 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FlightSocket,
+  AlulaSocket,
   ChannelError,
   TimeoutError,
   DisconnectedError,
   NotConnectedError,
   exponentialBackoff,
-} from "../src/flight-channels.js";
+} from "../src/alula-channels.js";
 import { MockWebSocket, scriptServer } from "./mock-websocket.js";
 
 function makeSocket(options = {}) {
-  return new FlightSocket("ws://example.test/socket", {
+  return new AlulaSocket("ws://example.test/socket", {
     webSocket: MockWebSocket,
     heartbeatIntervalMs: 60_000, // out of the way unless a test wants it
     pushTimeoutMs: 200,
@@ -37,7 +37,7 @@ test("join sends the exact envelope and resolves with initial state", async () =
   assert.equal(socket.channel("room:42").joined, true);
 
   const frame = JSON.parse(MockWebSocket.current.sent[0]);
-  assert.deepEqual(frame, { ref: "1", topic: "room:42", event: "flight:join", payload: {} });
+  assert.deepEqual(frame, { ref: "1", topic: "room:42", event: "alula:join", payload: {} });
   socket.disconnect();
 });
 
@@ -55,7 +55,7 @@ test("rejected join rejects with ChannelError and its wire reason", async () => 
   socket.disconnect();
 });
 
-test("push resolves on the matching flight:reply — refs correlate", async () => {
+test("push resolves on the matching alula:reply — refs correlate", async () => {
   const socket = makeSocket();
   await socket.connect();
   const room = socket.channel("room:1");
@@ -78,7 +78,7 @@ test("a handler that never replies rejects with TimeoutError", async () => {
   socket.disconnect();
 });
 
-test("flight:error on a pushed ref rejects with ChannelError", async () => {
+test("alula:error on a pushed ref rejects with ChannelError", async () => {
   const socket = makeSocket();
   await socket.connect();
   const room = socket.channel("room:1");
@@ -146,16 +146,16 @@ test("fire-and-forget send() puts ref: null on the wire", async () => {
   socket.disconnect();
 });
 
-test("heartbeats flow on the control topic and ride flight:heartbeat", async () => {
+test("heartbeats flow on the control topic and ride alula:heartbeat", async () => {
   const socket = makeSocket({ heartbeatIntervalMs: 20 });
   await socket.connect();
   await sleep(70);
 
   const heartbeats = MockWebSocket.current.sent
     .map((text) => JSON.parse(text))
-    .filter((frame) => frame.event === "flight:heartbeat");
+    .filter((frame) => frame.event === "alula:heartbeat");
   assert.ok(heartbeats.length >= 2, `expected ≥2 heartbeats, saw ${heartbeats.length}`);
-  assert.ok(heartbeats.every((frame) => frame.topic === "flight" && frame.ref != null));
+  assert.ok(heartbeats.every((frame) => frame.topic === "alula" && frame.ref != null));
   assert.equal(socket.state, "connected");
   socket.disconnect();
 });
@@ -166,7 +166,7 @@ test("an unanswered heartbeat closes the connection and re-dials", async () => {
   let deafAfterConnect = false;
   MockWebSocket.onSend = (ws, text) => {
     const frame = JSON.parse(text);
-    if (deafAfterConnect && frame.event === "flight:heartbeat") return; // server gone deaf
+    if (deafAfterConnect && frame.event === "alula:heartbeat") return; // server gone deaf
     original(ws, text);
   };
   const socket = makeSocket({ heartbeatIntervalMs: 20, reconnectDelayMs: () => 5 });
@@ -190,7 +190,7 @@ test("a dropped connection reconnects with backoff and rejoins", async () => {
   await room.join();
 
   const rejoins = [];
-  room.on("flight:join", (state) => rejoins.push(state));
+  room.on("alula:join", (state) => rejoins.push(state));
   const states = [];
   socket.onStateChange((state) => states.push(state));
 
@@ -249,7 +249,7 @@ test("an exhausted reconnect policy closes the socket", async () => {
   assert.equal(MockWebSocket.instances.length, 3); // initial + 2 attempts
 });
 
-test("disconnect() is terminal and sends flight:close; connect() starts fresh", async () => {
+test("disconnect() is terminal and sends alula:close; connect() starts fresh", async () => {
   const socket = makeSocket();
   await socket.connect();
   const ws = MockWebSocket.current;
@@ -257,7 +257,7 @@ test("disconnect() is terminal and sends flight:close; connect() starts fresh", 
   await sleep(20);
 
   const closeFrame = JSON.parse(ws.sent.at(-1));
-  assert.equal(closeFrame.event, "flight:close");
+  assert.equal(closeFrame.event, "alula:close");
   assert.equal(socket.state, "closed");
   assert.equal(MockWebSocket.instances.length, 1); // no reconnect
 
@@ -280,7 +280,7 @@ test("a left channel is not rejoined after a drop", async () => {
   assert.equal(room.joined, false);
   const joinFrames = MockWebSocket.current.sent
     .map((text) => JSON.parse(text))
-    .filter((frame) => frame.event === "flight:join");
+    .filter((frame) => frame.event === "alula:join");
   assert.equal(joinFrames.length, 0);
   socket.disconnect();
 });
@@ -309,10 +309,10 @@ test("undecodable server frames are dropped, not fatal", async () => {
   socket.disconnect();
 });
 
-test("server-initiated flight:close is a terminal, graceful teardown", async () => {
+test("server-initiated alula:close is a terminal, graceful teardown", async () => {
   const socket = makeSocket();
   await socket.connect();
-  MockWebSocket.current.receive({ ref: null, topic: "flight", event: "flight:close", payload: {} });
+  MockWebSocket.current.receive({ ref: null, topic: "alula", event: "alula:close", payload: {} });
   await sleep(20);
 
   assert.equal(socket.state, "closed");
