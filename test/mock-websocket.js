@@ -43,11 +43,15 @@ export class MockWebSocket {
     this.onmessage?.({ data: typeof envelope === "string" ? envelope : JSON.stringify(envelope) });
   }
 
-  /** Server side: drop the connection abruptly (no client close()). */
-  drop() {
+  /**
+   * Server side: end the connection without a client close(). The default
+   * 1006 is an abrupt drop; pass one of the codes the server closes with
+   * (1000, 1001, 4000, 4400, 4408, 4410) to act out that close.
+   */
+  drop(code = 1006) {
     if (this.readyState === 3) return;
     this.readyState = 3;
-    queueMicrotask(() => this.onclose?.({ code: 1006 }));
+    queueMicrotask(() => this.onclose?.({ code }));
   }
 
   static reset() {
@@ -70,7 +74,11 @@ MockWebSocket.onSend = null;
  * "fail" answers alula:error, heartbeats ack — mirroring the Swift test
  * fixtures so both clients are proven against the same server behavior.
  */
-export function scriptServer({ initialState = { count: 0 }, rejectTopics = [] } = {}) {
+export function scriptServer({
+  initialState = { count: 0 },
+  rejectTopics = [],
+  rejectReason = "forbidden",
+} = {}) {
   MockWebSocket.onSend = (ws, text) => {
     const { ref, topic, event, payload } = JSON.parse(text);
     const reply = (event, payload) =>
@@ -78,7 +86,7 @@ export function scriptServer({ initialState = { count: 0 }, rejectTopics = [] } 
 
     switch (event) {
       case "alula:join":
-        if (rejectTopics.includes(topic)) reply("alula:error", { reason: "forbidden" });
+        if (rejectTopics.includes(topic)) reply("alula:error", { reason: rejectReason });
         else reply("alula:reply", initialState);
         return;
       case "alula:leave":
@@ -86,6 +94,9 @@ export function scriptServer({ initialState = { count: 0 }, rejectTopics = [] } 
         if (ref != null) reply("alula:reply", {});
         return;
       case "alula:close":
+        // As the server does: reply to a ref'd close, then close with 1000.
+        if (ref != null) reply("alula:reply", {});
+        queueMicrotask(() => ws.drop(1000));
         return;
       case "echo":
         if (ref != null) reply("alula:reply", payload);

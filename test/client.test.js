@@ -309,12 +309,95 @@ test("undecodable server frames are dropped, not fatal", async () => {
   socket.disconnect();
 });
 
-test("server-initiated alula:close is a terminal, graceful teardown", async () => {
+test("an inbound alula:close is ignored: the server never sends one", async () => {
   const socket = makeSocket();
   await socket.connect();
+  const room = socket.channel("room:1");
+  await room.join();
+
   MockWebSocket.current.receive({ ref: null, topic: "alula", event: "alula:close", payload: {} });
   await sleep(20);
 
-  assert.equal(socket.state, "closed");
-  assert.equal(MockWebSocket.instances.length, 1); // no reconnect
+  assert.equal(socket.state, "connected");
+  assert.equal(MockWebSocket.instances.length, 1);
+  assert.deepEqual(await room.push("echo", { ok: 1 }), { ok: 1 });
+  socket.disconnect();
+});
+
+// The server ends a socket with a WebSocket close frame. Every code is a
+// drop: pending pushes reject, the socket reconnects and rejoins.
+const serverCloseCodes = [
+  [1000, "normal closure"],
+  [1001, "server shutting down"],
+  [4000, "heartbeat timeout"],
+  [4400, "protocol violation"],
+  [4408, "client stopped reading"],
+  [4410, "outbound queue overflow"],
+];
+
+for (const [code, why] of serverCloseCodes) {
+  test(`server close ${code} (${why}) is a drop: pushes reject, then reconnect and rejoin`, async () => {
+    const socket = makeSocket({ pushTimeoutMs: 5_000 });
+    await socket.connect();
+    const room = socket.channel("room:7");
+    await room.join();
+    const rejoins = [];
+    room.on("alula:join", (state) => rejoins.push(state));
+    const states = [];
+    socket.onStateChange((state) => states.push(state));
+
+    const pending = room.push("silent");
+    MockWebSocket.current.drop(code);
+    await assert.rejects(pending, DisconnectedError);
+    await sleep(30);
+
+    assert.deepEqual(states, ["disconnected", "connecting", "connected"]);
+    assert.equal(room.joined, true);
+    assert.deepEqual(rejoins, [{ count: 0 }]);
+    assert.equal(MockWebSocket.instances.length, 2);
+    socket.disconnect();
+  });
+
+  test(`server close ${code} (${why}) reaches "closed" when the reconnect policy gives up`, async () => {
+    const socket = makeSocket({ reconnectDelayMs: () => null });
+    await socket.connect();
+    const states = [];
+    socket.onStateChange((state) => states.push(state));
+
+    MockWebSocket.current.drop(code);
+    await sleep(20);
+
+    assert.deepEqual(states, ["disconnected", "closed"]);
+    assert.equal(socket.state, "closed");
+    assert.equal(MockWebSocket.instances.length, 1);
+    await assert.rejects(socket.channel("room:7").push("echo"), NotConnectedError);
+  });
+}
+
+test("a rejoin refused after a server close surfaces the server's reason", async () => {
+  const socket = makeSocket();
+  await socket.connect();
+  const room = socket.channel("room:7");
+  await room.join();
+  const errors = [];
+  room.on("alula:error", (payload) => errors.push(payload));
+
+  // The socket's session expired: the heartbeat-timeout close, then a
+  // gate that no longer admits this client.
+  scriptServer({ rejectTopics: ["room:7"], rejectReason: "unauthenticated" });
+  MockWebSocket.current.drop(4000);
+  await sleep(30);
+
+  assert.equal(socket.state, "connected");
+  assert.equal(room.joined, false);
+  assert.deepEqual(errors, [{ reason: "unauthenticated" }]);
+
+  // The gate closed: a later drop does not retry it.
+  MockWebSocket.current.drop(1001);
+  await sleep(30);
+  const joins = MockWebSocket.current.sent
+    .map((text) => JSON.parse(text))
+    .filter((frame) => frame.event === "alula:join");
+  assert.equal(joins.length, 0);
+  socket.disconnect();
 });

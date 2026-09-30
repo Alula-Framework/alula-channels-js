@@ -341,17 +341,14 @@ export class AlulaSocket {
         this._channels.get(topic)?._deliver(event, payload);
         return;
       }
-      case RESERVED.close:
-        // Server-initiated graceful teardown: terminal, no reconnect. The
-        // server does not send alula:close today (it closes the WebSocket
-        // with a close code, which is a drop); this matches the Swift
-        // client, which treats one the same way.
-        this.disconnect();
-        return;
       case RESERVED.join:
       case RESERVED.leave:
       case RESERVED.heartbeat:
-        return; // server never initiates these; tolerate and ignore
+      case RESERVED.close:
+        // The server never initiates these; tolerate and ignore. It ends a
+        // socket with a WebSocket close frame, not alula:close, and onclose
+        // handles that as a drop, for every close code alike.
+        return;
       default:
         this._channels.get(topic)?._deliver(event, payload);
     }

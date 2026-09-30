@@ -74,14 +74,20 @@ drop the socket re-dials per `reconnectDelayMs` (default: doubling backoff,
 100 ms → 10 s, forever) and rejoins every joined channel. The fresh initial
 state is delivered to listeners as a `"alula:join"` message. A rejected
 rejoin (the gate closed while you were away) arrives as `"alula:error"`
-and stops retrying that topic. `disconnect()` is terminal — no
-reconnection until `connect()` is called again. The client would treat a
-server `alula:close` the same way, but the server doesn't send one: it
-closes the WebSocket, and every server close is a drop that reconnects.
-The close code says why — `4000` heartbeat timeout, `4400` protocol
-violation, `4408` the client stopped reading, `4410` the client fell too
-far behind and frames would have been dropped — and in each case the
-rejoin brings fresh state.
+and stops retrying that topic, with the server's reason (`forbidden`,
+`unauthenticated`, …) as its payload. `disconnect()` is terminal — no
+reconnection until `connect()` is called again; it sends `alula:close`,
+which only ever travels client to server.
+
+The server ends a socket by closing the WebSocket, and every server close
+is a drop, handled alike whatever its code: pending pushes reject with
+`DisconnectedError`, the state goes to `"disconnected"`, and the socket
+reconnects and rejoins, reaching `"closed"` only if `reconnectDelayMs`
+gives up. The code says why — `1000` normal closure, `1001` the server
+is shutting down, `4000` heartbeat timeout, `4400` protocol violation,
+`4408` the client stopped reading, `4410` the client fell too far behind
+and frames would have been dropped — and in each case the rejoin brings
+fresh state.
 
 ```js
 const socket = new AlulaSocket(url, {
