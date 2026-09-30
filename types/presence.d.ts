@@ -1,5 +1,5 @@
-// Type declarations for @alula-framework/channels/presence — the presence helper
-// ( ).
+// Type declarations for @alula-framework/channels/presence, the helper that
+// keeps an Alula Presence list from alula:presence_state/_diff messages.
 
 import type { Json } from "./index.js";
 
@@ -8,7 +8,11 @@ export const PRESENCE_EVENTS: Readonly<{
   diff: "alula:presence_diff";
 }>;
 
-/** One meta as it travels on the wire: the ref plus the flattened payload. */
+/**
+ * One meta as it travels on the wire: the ref plus the flattened payload.
+ * The server emits only string values; `ref` is reserved and never a
+ * payload key.
+ */
 export interface PresenceMeta {
   ref: string;
   [key: string]: Json;

@@ -13,6 +13,21 @@ in Node ≥ 18 (inject a WebSocket implementation where there's no global).
 > both server and clients, and this is the client it versions with the
 > protocol.
 
+## Installing
+
+`@alula-framework/channels` is not published to npm. Install it from the
+Git repository:
+
+```sh
+npm install github:Alula-Framework/alula-channels-js
+```
+
+or copy `src/` (and `types/` for TypeScript) into your project; there are
+no dependencies to bring with it. The server side is alula's
+`AlulaChannels` product; the protocol both speak is its
+`AlulaChannelsProtocol` target (`Envelope`, `ReservedEvent`,
+`ChannelErrorReason`, `ChannelCloseCode`).
+
 ## Usage
 
 ```js
@@ -39,7 +54,13 @@ socket.disconnect();
 `push()`/`join()` reject with:
 
 - `ChannelError` — the server answered `alula:error`; `.reason` is the
-  wire reason (`"forbidden"`, `"not_joined"`, …).
+  wire reason. The server's reasons: `unauthenticated` and `forbidden`
+  (the join gate), `unmatched_topic` (no channel serves the topic),
+  `already_joined`, `too_many_topics`, `reserved_topic` (the `"alula"`
+  control topic), `not_joined` (a push or leave on a topic this socket
+  hasn't joined), `invalid_event` (an application event starting with
+  `alula:`), and `handler_error` (the channel failed; the detail stays in
+  the server log).
 - `TimeoutError` — no reply before the deadline (`pushTimeoutMs`, default
   10 s). A handler that returns `.none` never replies — use `send()` for
   those events.
@@ -53,12 +74,18 @@ drop the socket re-dials per `reconnectDelayMs` (default: doubling backoff,
 100 ms → 10 s, forever) and rejoins every joined channel. The fresh initial
 state is delivered to listeners as a `"alula:join"` message. A rejected
 rejoin (the gate closed while you were away) arrives as `"alula:error"`
-and stops retrying that topic. `disconnect()` and a server `alula:close`
-are terminal — no reconnection until `connect()` is called again.
+and stops retrying that topic. `disconnect()` is terminal — no
+reconnection until `connect()` is called again. The client would treat a
+server `alula:close` the same way, but the server doesn't send one: it
+closes the WebSocket, and every server close is a drop that reconnects.
+The close code says why — `4000` heartbeat timeout, `4400` protocol
+violation, `4408` the client stopped reading, `4410` the client fell too
+far behind and frames would have been dropped — and in each case the
+rejoin brings fresh state.
 
 ```js
 const socket = new AlulaSocket(url, {
-  heartbeatIntervalMs: 25_000, // keep well inside the server's 60 s timeout
+  heartbeatIntervalMs: 25_000, // inside the server's heartbeat timeout (default 60 s)
   pushTimeoutMs: 10_000,
   reconnectDelayMs: exponentialBackoff({ initialMs: 100, maxMs: 10_000 }),
   webSocket: WebSocket,        // injectable (Node, tests)
@@ -70,7 +97,28 @@ socket.onStateChange((state) => {
 
 Heartbeats ride `alula:heartbeat` on the reserved `"alula"` topic; an
 unanswered heartbeat is treated as a dead connection and triggers the
-reconnect path.
+reconnect path. The server's side is `channels.heartbeat-timeout-seconds`
+(default 60): keep `heartbeatIntervalMs` well below it.
+
+## Presence
+
+`@alula-framework/channels/presence` keeps a topic's Alula Presence list
+from the server's `alula:presence_state` and `alula:presence_diff`
+messages, so application code sees a list rather than diffs:
+
+```js
+import { AlulaPresence } from "@alula-framework/channels/presence";
+
+const room = socket.channel("room:42");
+const presence = new AlulaPresence(room);
+presence.onChange(({ list, joins, leaves }) => render(list));
+await room.join();   // the server sends the state, then diffs
+```
+
+`list()` is sorted by key; each entry's metas carry the `ref` plus the
+tracked payload, whose values are strings. `joins` and `leaves` are the
+net change: a meta updated in place appears in `joins` only. The rules
+match alula's Swift `PresenceSync` (in `AlulaPresenceProtocol`).
 
 ## Tests
 
@@ -78,6 +126,6 @@ reconnect path.
 npm test   # node --test; zero dependencies
 ```
 
-The suite drives the client against a scripted in-memory server speaking
-the same wire fixtures the Swift test suite asserts on — one protocol,
-three artifacts, versioned together.
+The suite drives the client against a scripted in-memory server and
+asserts on exact frames, as alula's Swift suites do: one protocol, a
+server and two clients, versioned together.

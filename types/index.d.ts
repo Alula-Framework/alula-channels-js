@@ -1,5 +1,5 @@
-// Type declarations for @alula-framework/channels — the JS reference client
-// ( ).
+// Type declarations for @alula-framework/channels, the JS reference client
+// for Alula Channels.
 
 /** Any JSON value — the envelope's opaque payload. */
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };

@@ -71,8 +71,8 @@ export function exponentialBackoff({ initialMs = 100, maxMs = 10_000, maxAttempt
 }
 
 /**
- * One client WebSocket connection to an Alula server — the "Socket" noun
- *. Holds many channels.
+ * One client WebSocket connection to an Alula server: the client side of
+ * a server `Socket`. Holds many channels.
  */
 export class AlulaSocket {
   /**
@@ -342,7 +342,10 @@ export class AlulaSocket {
         return;
       }
       case RESERVED.close:
-        // Server-initiated graceful teardown: terminal, no reconnect.
+        // Server-initiated graceful teardown: terminal, no reconnect. The
+        // server does not send alula:close today (it closes the WebSocket
+        // with a close code, which is a drop); this matches the Swift
+        // client, which treats one the same way.
         this.disconnect();
         return;
       case RESERVED.join:
@@ -370,8 +373,8 @@ export class AlulaSocket {
 }
 
 /**
- * A client's membership in one topic on one socket — the "Channel" noun
- *, client side.
+ * A client's membership in one topic on one socket: the client side of a
+ * server `Channel`.
  */
 export class AlulaChannel {
   /**

@@ -1,6 +1,6 @@
 // Alula Presence — JS/TS client helper.
 //
-// Applies alula:presence_state / alula:presence_diff messages from a
+// Applies alula:presence_state / alula:presence_diff messages from an
 // AlulaChannel to a maintained key → metas map, so application code sees
 // a list, not diff plumbing. The rules mirror the Swift `PresenceSync`
 // state machine exactly (its test suite asserts the same cases):
@@ -51,7 +51,7 @@ function parseEntries(entries) {
 export class AlulaPresence {
   /**
    * @param {{on: (event: string, listener: (payload: any) => void) => () => void}} channel
-   *   a AlulaChannel (or anything with its `on` shape).
+   *   an AlulaChannel (or anything with its `on` shape).
    */
   constructor(channel) {
     /** @type {Map<string, object[]>} key → metas, each meta {ref, ...payload} */
